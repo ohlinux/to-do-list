@@ -22,7 +22,7 @@ $(document).ready(function() {
       var str=JSON.stringify(data);
       localStorage.setItem("mtask-"+i,str);
       var $output="<li id='mtask-"+ i +"'> <input type='checkbox' /><span>"+data.content+"</span><a href='#'>x</a></li>"
-      $output.editable( { editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave($(this).parent().attr("id"))}}); 
+      $output.editable( { editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}}); 
 
       $("#tasks").append($output)
       $("#mtask-" + i).css('display', 'none');
@@ -34,7 +34,7 @@ $(document).ready(function() {
   });
   
   //Edit a task 
-  $("#tasks li span").editable({ editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave($(this).parent().attr("id"))}}); 
+  $("#tasks li span").editable({ editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}}); 
 
   // Remove a task      
   $("#tasks li a").live("click", function() {
@@ -49,8 +49,7 @@ $(document).ready(function() {
     }
   });
 
-  function editSave(id){
-      alert( content )
+  function editSave(content,id){
       var str=localStorage.getItem(id);
       var data=JSON.parse(str);
       data.content=content.current;
