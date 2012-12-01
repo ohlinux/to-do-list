@@ -3,10 +3,10 @@ if(!window.localStorage){
 }
 
 $(document).ready(function() { 
-  var index,i,key;
+    var index,i,key,changeList;
 
   // Initial loading of tasks
-  index = localStorage.getItem( "mtask:index");
+    index = localStorage.getItem("mtask:index");
     if ( ! index ){
      localStorage.setItem("mtask:index",index=1);
     }
@@ -29,6 +29,20 @@ $(document).ready(function() {
             var data=JSON.parse(str);
             $("#tasks").append("<li id='mtask:"+ data.id +"'> <input type='checkbox' /> <span>"+ data.content + "</span> <a data-id="+data.id+" href='#'>x</a></li>");
     }
+    
+   //change status list  ADD DEL MODIFY
+    ADDList=JSON.parse(localStorage.getItem("mtask:ADD"));
+    DELList=JSON.parse(localStorage.getItem("mtask:DEL"));
+    MODIFYList=JSON.parse(localStorage.getItem("mtask:MODIFY"));
+    if ( !ADDList ){
+        var ADDList=new Array();
+    }
+    if ( !DELList){
+        var DELList=new Array();
+    }
+    if (!MODIFYList){
+        var MODIFYList=new Array();
+    }
 
   // Add a task
   $("#tasks-form").submit(function() {
@@ -45,6 +59,10 @@ $(document).ready(function() {
       localStorage.setItem("mtask:"+data.id,str);
       keyRange.push("mtask:"+data.id);
       localStorage.setItem("mtask:keys",JSON.stringify(keyRange));
+      //add change list
+      changeList(ADDList,"mtask:"+data.id,"ADD");
+
+
       var $output=$("<li id='mtask:"+ data.id +"'> <input type='checkbox' /><span>"+data.content+"</span><a data-id="+data.id+" href='#'>x</a></li>");
       $output.editable({editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}}); 
       $("#tasks").prepend($output);
@@ -56,11 +74,18 @@ $(document).ready(function() {
   });
   
   //Edit a task 
-  $("#tasks li span").editable({ editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}}); 
+  $("#tasks li span").editable({
+      editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}
+  }); 
 
   // Remove a task      
   $("#tasks li a").live("click", function() {
     removeKey=$(this).parent().attr("id");
+    
+    var delItem=JSON.parse(localStorage.getItem(removeKey));
+    if (delItem.gid){
+       changeList(DELList,delItem.gid,"DEL");
+    }
     localStorage.removeItem(removeKey);
 //    var newkeyRange=new Array();
 //    for ( i=0;i<keyRange.length;i++ ){
@@ -83,4 +108,9 @@ $(document).ready(function() {
       var save=JSON.stringify(data);
       localStorage.setItem(id,save);   
   }
+
+ function changeList(list,key,tag ){
+     list.push(key);
+     localStorage.setItem( "mtask:"+tag,JSON.stringify(list));
+}
 }); 
