@@ -1,23 +1,86 @@
-$("#logout").click(function(event){
-    event.preventDefault();
-    del_cookie("admin_id");
-    window.location.href = "/login/index";
-})
-
-function del_cookie(name)
-{
-    document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:01 GMT;path=/;';
+if(!window.localStorage){
+   alert("浏览暂不支持localStorage")
 }
 
-$("form[data-type=formAction]").submit(function(event){
-    event.preventDefault();
-    var target = event.target;
-    var action = $(target).attr("action");
-    $.post(action, $(target).serialize(), function(ret){
-        if(ret.Ret == "0") {
-            alert(ret.Reason);
-        } else {
-            location.href = $(target).attr("form-rediret");
+$(document).ready(function() { 
+  var index,i,key;
+
+  // Initial loading of tasks
+  index = localStorage.getItem( "mtask:index");
+    if ( ! index ){
+     localStorage.setItem("mtask:index",index=1);
+    }
+   var keyRange=new Array();
+   keyRange = JSON.parse(localStorage.getItem( "mtask:keys" ));
+    if ( !keyRange){
+        var keyRange=new Array();
+        for( i=0;i< localStorage.length ;i++ ){
+            key=localStorage.key(i);
+           if ( /mtask:\d+/.test(key)){
+            keyRange.push(key);
+           }
         }
-    },"json")
-})
+        localStorage.setItem( "mtask:keys",JSON.stringify(keyRange));
+    }
+  //Initial tasks
+    for( i = keyRange.length-1; i >= 0 ; i--){  
+            key = keyRange[i];
+            var str=localStorage.getItem(key);
+            var data=JSON.parse(str);
+            $("#tasks").append("<li id='mtask:"+ data.id +"'> <input type='checkbox' /> <span>"+ data.content + "</span> <a data-id="+data.id+" href='#'>x</a></li>");
+    }
+
+  // Add a task
+  $("#tasks-form").submit(function() {
+    if (  $("#task").val() != "" ) {
+      var data=new Object;
+      var d=new Date();
+
+      entryid=index;
+      localStorage.setItem( "mtask:index",++index );
+      data.content=$("#task").val();
+      data.Time=d.getTime();
+      data.id=entryid;
+      var str=JSON.stringify(data);
+      localStorage.setItem("mtask:"+data.id,str);
+      keyRange.push("mtask:"+data.id);
+      localStorage.setItem("mtask:keys",JSON.stringify(keyRange));
+      var $output=$("<li id='mtask:"+ data.id +"'> <input type='checkbox' /><span>"+data.content+"</span><a data-id="+data.id+" href='#'>x</a></li>");
+      $output.editable({editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}}); 
+      $("#tasks").prepend($output);
+      $("#mtask:" + data.id).css('display', 'none');
+      $("#mtask:" + data.id).slideDown();
+      $("#mtask").val("");
+    }
+    return false;
+  });
+  
+  //Edit a task 
+  $("#tasks li span").editable({ editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}}); 
+
+  // Remove a task      
+  $("#tasks li a").live("click", function() {
+    removeKey=$(this).parent().attr("id");
+    localStorage.removeItem(removeKey);
+//    var newkeyRange=new Array();
+//    for ( i=0;i<keyRange.length;i++ ){
+//        if (keyRange[i] != removeKey){
+//            newkeyRange.push( keyRange[i]);
+//        }
+//    }
+    keyRange.splice(jQuery.inArray(removeKey,keyRange),1);
+    localStorage.setItem("mtask:keys",JSON.stringify(keyRange));
+    $(this).parent().slideUp('slow', function() { $(this).remove(); } );
+  });
+
+  //edit the value
+  function editSave(content,id){
+      var str=localStorage.getItem(id);
+      var data=JSON.parse(str);
+      var d=new Date();
+      data.Time=d.getTime();
+      data.content=content.current;
+      var save=JSON.stringify(data);
+      localStorage.setItem(id,save);   
+  }
+}); 

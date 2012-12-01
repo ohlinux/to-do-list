@@ -1,45 +1,156 @@
 package main
 
 import (
-    "fmt"
-    "html/template"
+    "io"
+    "os"
     "log"
     "net/http"
+    "io/ioutil"
+    "html/template"
+    "path"
     "strings"
+    "runtime/debug"
 )
 
-func sayhelloName(w http.ResponseWriter, r *http.Request) {
-    r.ParseForm()       //解析url传递的参数，对于POST则解析响应包的主体（request body）
-    //注意:如果没有调用parseForm方法，下面无法获取表单的数据
-    fmt.Println(r.Form) //这些信息是输出到服务器端的打印信息
-    fmt.Println("path", r.URL.Path)
-    fmt.Println("scheme", r.URL.Scheme)
-    fmt.Println(r.Form["url_long"])
-    for k, v := range r.Form {
-        fmt.Println("key:", k)
-        fmt.Println("val:", strings.Join(v, ""))
-    }
-    fmt.Fprintf(w, "Hello astaxie!") //这个写入到w的是输出到客户端的
-}
+const(
+    UPLOAD_DIR = "./uploads"
+    TEMPLATE_DIR = "./template/"
+    ListDir= 0x0001
+)
 
-func login(w http.ResponseWriter, r *http.Request) {
-    fmt.Println("method:", r.Method) //获取请求的方法
-    if r.Method == "GET" {
-        t, _ := template.ParseFiles("../template/login.gtpl")
-        t.Execute(w, nil)
-    } else {
-        r.ParseForm()       //解析url传递的参数，对于POST则解析响应包的主体（request body）
-        //请求的是登陆数据，那么执行登陆的逻辑判断
-        fmt.Println("username:", r.Form["username"])
-        fmt.Println("password:", r.Form["password"])
-    }
-}
+var templates = make(  map[string]*template.Template)
 
-func main() {
-    http.HandleFunc("/", sayhelloName)       //设置访问的路由
-    http.HandleFunc("/login", login)         //设置访问的路由
-    err := http.ListenAndServe(":9090", nil) //设置监听的端口
+func init(){
+    fileInfoArr,err := ioutil.ReadDir( TEMPLATE_DIR )
     if err != nil {
-        log.Fatal("ListenAndServe: ", err)
+        panic( err )
+        return
+    }
+    var templateName,templatePath string 
+    for _,fileInfo := range fileInfoArr{
+        templateName = fileInfo.Name()
+        if ext := path.Ext( templateName);ext != ".html" {
+            continue
+        }
+        templatePath= TEMPLATE_DIR + "/" +templateName
+        log.Println( "Loading template:",templatePath )
+        t := template.Must( template.ParseFiles( templatePath))
+        tmpl := strings.Split( templateName,".html" )[0]
+        templates[tmpl] = t
     }
 }
+
+func check( err error ){
+    if err!=nil{
+        panic( err )
+    }
+}
+
+func renderHtml( w http.ResponseWriter,tmpl string,locals map[string]interface{}) ( err error) {
+        err = templates[tmpl].Execute( w,locals )
+        check( err )
+        return
+}
+
+func isExists( path string ) bool {
+    _,err := os.Stat( path )
+    if err == nil {
+        return true
+    }
+    return os.IsExist( err )
+}
+
+func uploadHandler( w http.ResponseWriter,r *http.Request ){
+    if r.Method == "GET" {
+        err := renderHtml( w,"upload",nil )
+        check( err )
+//        io.WriteString( w,"<html><body><form method=\"POST\" action=\"/upload\" enctype=\"multipart/form-data\">"+
+//        "Choose an image to upload:<input name=\"image\" type=\"file\" />"+
+//        "<input type=\"submit\" value=\"Upload\" />"+
+//        "</form></body></html>")
+        return
+    }
+
+    if r.Method == "POST" {
+        f,h,err := r.FormFile( "image" )
+        check( err )
+        filename := h.Filename
+        defer f.Close()
+        t,err := os.Create( UPLOAD_DIR + "/" + filename  )
+        check( err )
+        defer t.Close()
+        _,err = io.Copy( t,f )
+        check( err ) 
+        http.Redirect( w,r,"/view?id="+filename,
+        http.StatusFound)
+    }
+}
+
+func viewHandler( w http.ResponseWriter,r *http.Request ){
+    imageId := r.FormValue( "id" )
+    imagePath := UPLOAD_DIR + "/" +imageId
+    if exists := isExists( imagePath );!exists{
+        http.NotFound( w,r )
+        return
+    }
+    w.Header().Set( "Content-Type","image/png" )
+    http.ServeFile( w,r,imagePath )
+}
+
+func listHandler( w http.ResponseWriter,r *http.Request){
+//    fileInfoArr,err := ioutil.ReadDir( "./uploads" )
+//    check( err )
+    locals := make( map[string]interface{})
+//    images:=[]string{}
+//    for _,fileInfo := range fileInfoArr{
+//        images = append( images,fileInfo.Name() )
+//    }
+//
+//    locals["images"] = images
+     err := renderHtml( w,"todo",locals )
+    check( err )
+}
+
+func safeHandler( fn http.HandlerFunc ) http.HandlerFunc{
+    return func( w http.ResponseWriter,r *http.Request ){
+        defer func(){
+            e := recover()
+            if err,ok:= e.(error);ok{
+                http.Error( w,err.Error(),http.StatusInternalServerError )
+                log.Println( "WARN: panic in %v. - %v",fn,err )
+                log.Println( string( debug.Stack() ) )
+            }
+        }()
+        fn( w,r )
+    }
+}
+
+func staticDirHandler( mux *http.ServeMux,prefix string,staticDir string,flags int ){
+    mux.HandleFunc( prefix,func( w http.ResponseWriter,r *http.Request) {
+        file := staticDir + r.URL.Path[len( prefix )-1:]
+        if( flags & ListDir )== 0{
+            if exists := isExists( file );!exists{
+                http.NotFound( w,r )
+                return
+            }
+        }
+        log.Println( file )
+        http.ServeFile( w,r,file )
+    })
+}
+
+func main(){
+    mux := http.NewServeMux()
+//    http.Handle("/css/", http.FileServer(http.Dir("public")))
+//    http.Handle("/js/", http.FileServer(http.Dir("public")))
+
+    staticDirHandler( mux,"/public/","./public",0 )
+    mux.HandleFunc("/",safeHandler(listHandler))
+  //  mux.HandleFunc("/view",safeHandler(  viewHandler ))
+  //  mux.HandleFunc("/upload",safeHandler( uploadHandler ))
+    err := http.ListenAndServe( ":8080",mux )
+    if err != nil {
+        log.Fatal( "ListenAndServe: ",err.Error() )
+    }
+}
+

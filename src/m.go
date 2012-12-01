@@ -38,6 +38,9 @@ type ajaxController struct {
 type loginController struct {
 }
 
+type registerController struct {
+}
+
 func (this *adminController)IndexAction(w http.ResponseWriter, r *http.Request, user string) {
     t, err := template.ParseFiles("template/admin/index.html")
     if (err != nil) {
@@ -126,13 +129,44 @@ func (this *ajaxController)LoginAction(w http.ResponseWriter, r *http.Request) {
     return
 }
 
-func OutputJson(w http.ResponseWriter, ret int, reason string, i interface{}) {
-    out := &Result{ret, reason, i}
-    b, err := json.Marshal(out)
+func (this *ajaxController)registerAction(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("content-type", "application/json")
+    err := r.ParseForm()
     if err != nil {
+        OutputJson(w, 0, "参数错误", nil)
         return
     }
-    w.Write(b)
+
+    name := r.FormValue("register_name")
+    password := r.FormValue("register_password")
+//    email := r.FormValue("register_email")
+//    sex := r.FormValue( "register_sex" )
+
+    if name == "" || password == ""{
+        OutputJson(w, 0, "参数错误", nil)
+        return
+    }
+
+    session, err := mgo.Dial("127.0.0.1:27018")
+    if err != nil {
+        panic(err)
+    }
+    defer session.Close()
+
+    session.SetMode(mgo.Monotonic, true)
+
+    // 获取数据库,获取集合
+    c := session.DB("test_go").C("user")
+
+//    // 存储数据
+    m1 := adminUser{name, password}
+//    m2 := adminUser{"user2", "222"}
+    err = c.Insert(&m1)
+    if err != nil {
+        panic(err)
+    }
+    OutputJson(w, 1, "注册成功", nil)
+    return
 }
 
 func (this *loginController)IndexAction(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +175,15 @@ func (this *loginController)IndexAction(w http.ResponseWriter, r *http.Request) 
         log.Println(err)
     }
     t.Execute(w, nil)
+}
+
+func OutputJson(w http.ResponseWriter, ret int, reason string, i interface{}) {
+    out := &Result{ret, reason, i}
+    b, err := json.Marshal(out)
+    if err != nil {
+        return
+    }
+    w.Write(b)
 }
 
 func adminHandler(w http.ResponseWriter, r *http.Request) {
@@ -208,6 +251,28 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
     method.Call([]reflect.Value{responseValue, requestValue})
 }
 
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+    log.Println("registerHandler")
+    pathInfo := strings.Trim(r.URL.Path, "/")
+    parts := strings.Split(pathInfo, "/")
+    log.Println( parts)
+    log.Println( parts[1])
+    var action = ""
+    if len(parts) > 1 {
+        action = strings.Title(parts[1]) + "Action"
+    }
+    log.Println( "action"+action)
+    register := &registerController{}
+    controller := reflect.ValueOf(register)
+    method := controller.MethodByName(action)
+    if !method.IsValid() {
+        method = controller.MethodByName(strings.Title("index") + "Action")
+    }
+    requestValue := reflect.ValueOf(r)
+    responseValue := reflect.ValueOf(w)
+    method.Call([]reflect.Value{responseValue, requestValue})
+}
+
 func NotFoundHandler(w http.ResponseWriter, r *http.Request) {
     if r.URL.Path == "/" {
         http.Redirect(w, r, "/login/index", http.StatusFound)
@@ -227,7 +292,7 @@ func main() {
 
     http.HandleFunc("/admin/", adminHandler)
     http.HandleFunc("/login/",loginHandler)
-//    http.HandleFunc("/register/",registerHandler)
+    http.HandleFunc("/register/",registerHandler)
     http.HandleFunc("/ajax/",ajaxHandler)
     http.HandleFunc("/",NotFoundHandler)
     http.ListenAndServe(":8888", nil)
