@@ -113,4 +113,18 @@ $(document).ready(function() {
      list.push(key);
      localStorage.setItem( "mtask:"+tag,JSON.stringify(list));
 }
+
+
+//var timeOutID = 0;
+//$.ajax({
+//  url: 'save/todo.html',
+//  success: function(data) {     
+//
+//    clearTimeOut(timeOutID);
+//    // Remove the abort button if it exists.
+//}
+//});
+//timeOutID = setTimeout(function() {
+//                 // Add the abort button here.
+//               }, 5000); 
 }); 
