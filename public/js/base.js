@@ -1,39 +1,28 @@
 if(!window.localStorage){
    alert("浏览暂不支持localStorage")
 }
+//var status_count = 2;
+//var column_count = 1;
+//var last_update = 0;
+//var update_every = 8000; // never update more than every x milliseconds
+
 
 $(document).ready(function() { 
-    var index,i,key,changeList;
+  
+    last_update = current_ms_time();
+	
 
   // Initial loading of tasks
-    index = localStorage.getItem("mtask:index");
-    if ( ! index ){
-     localStorage.setItem("mtask:index",index=1);
-    }
-   var keyRange=new Array();
-   keyRange = JSON.parse(localStorage.getItem( "mtask:keys" ));
-    if ( !keyRange){
-        var keyRange=new Array();
-        for( i=0;i< localStorage.length ;i++ ){
-            key=localStorage.key(i);
-           if ( /mtask:\d+/.test(key)){
-            keyRange.push(key);
-           }
-        }
-        localStorage.setItem( "mtask:keys",JSON.stringify(keyRange));
-    }
-  //Initial tasks
-    for( i = keyRange.length-1; i >= 0 ; i--){  
-            key = keyRange[i];
-            var str=localStorage.getItem(key);
-            var data=JSON.parse(str);
-            $("#tasks").append("<li id='mtask:"+ data.id +"'> <input type='checkbox' /> <span>"+ data.content + "</span> <a data-id="+data.id+" href='#'>x</a></li>");
+  //  project.init();
+    var index = lGet("mtask:index");
+    if (!index ){
+     lSet("mtask:index",index=1);
     }
     
-   //change status list  ADD DEL MODIFY
-    ADDList=JSON.parse(localStorage.getItem("mtask:ADD"));
-    DELList=JSON.parse(localStorage.getItem("mtask:DEL"));
-    MODIFYList=JSON.parse(localStorage.getItem("mtask:MODIFY"));
+  //init status list  ADD DEL MODIFY
+    ADDList=lGet("mtask:ADD");
+    DELList=lGet("mtask:DEL");
+    MODIFYList=lGet("mtask:MODIFY");
     if ( !ADDList ){
         var ADDList=new Array();
     }
@@ -43,25 +32,49 @@ $(document).ready(function() {
     if (!MODIFYList){
         var MODIFYList=new Array();
     }
-
+    
+    var keyRange = lGet( "mtask:keys");
+    if (!keyRange){
+        var keyRange=new Array();
+        for( var i=0;i< localStorage.length ;i++ ){
+            var key=localStorage.key(i);
+           if ( /mtask:\d+/.test(key)){
+            keyRange.push(key);
+           }
+        }
+        lSet( "mtask:keys",keyRange);
+    }
+    
+   
+   //Initial tasks
+    for( i = keyRange.length-1; i >= 0 ; i--){  
+            key = keyRange[i];
+            var data=lGet(key);
+            $("#tasks").append("<li id='mtask:"+ data.id +"'> <input type='checkbox' /> <span>"+ data.content + "</span> <a data-id="+data.id+" href='#'>x</a></li>");
+    }
+    
+   
+    //get data from server
+ //   projects.get();	
+  
+  
   // Add a task
   $("#tasks-form").submit(function() {
     if (  $("#task").val() != "" ) {
-      var data=new Object;
       var d=new Date();
-
       entryid=index;
-      localStorage.setItem( "mtask:index",++index );
-      data.content=$("#task").val();
-      data.Time=d.getTime();
-      data.id=entryid;
-      var str=JSON.stringify(data);
-      localStorage.setItem("mtask:"+data.id,str);
+      lSet( "mtask:index",++index );
+      var data={
+	      content : $("#task").val(),
+              Time : d.getTime(),
+              id :entryid,
+      }
+      lSet("mtask:"+data.id,data);
       keyRange.push("mtask:"+data.id);
-      localStorage.setItem("mtask:keys",JSON.stringify(keyRange));
+      lSet("mtask:keys",keyRange);
+      
       //add change list
       changeList(ADDList,"mtask:"+data.id,"ADD");
-
 
       var $output=$("<li id='mtask:"+ data.id +"'> <input type='checkbox' /><span>"+data.content+"</span><a data-id="+data.id+" href='#'>x</a></li>");
       $output.editable({editBy:"dblclick",type:"textarea",editClasss:'note_are',onSubmit:function(content){editSave(content,$(this).parent().attr("id"))}}); 
@@ -82,7 +95,7 @@ $(document).ready(function() {
   $("#tasks li a").live("click", function() {
     removeKey=$(this).parent().attr("id");
     
-    var delItem=JSON.parse(localStorage.getItem(removeKey));
+    var delItem=lGet(removeKey);
     if (delItem.gid){
        changeList(DELList,delItem.gid,"DEL");
     }
@@ -94,24 +107,24 @@ $(document).ready(function() {
 //        }
 //    }
     keyRange.splice(jQuery.inArray(removeKey,keyRange),1);
-    localStorage.setItem("mtask:keys",JSON.stringify(keyRange));
+    lSet("mtask:keys",keyRange);
     $(this).parent().slideUp('slow', function() { $(this).remove(); } );
   });
 
   //edit the value
   function editSave(content,id){
-      var str=localStorage.getItem(id);
-      var data=JSON.parse(str);
+      var data=lGet(id);
       var d=new Date();
-      data.Time=d.getTime();
-      data.content=content.current;
-      var save=JSON.stringify(data);
-      localStorage.setItem(id,save);   
+      data={
+	   Time : d.getTime(),
+           content :content.current,
+      }
+      lSet(id,data);   
   }
 
  function changeList(list,key,tag ){
      list.push(key);
-     localStorage.setItem( "mtask:"+tag,JSON.stringify(list));
+     lSet( "mtask:"+tag,list);
 }
 
 
@@ -128,3 +141,33 @@ $(document).ready(function() {
 //                 // Add the abort button here.
 //               }, 5000); 
 }); 
+
+function ajaxstatus (msg)
+{
+        msg = msg ? msg : '<span class="loading"></span> talking to server';
+        $('#ajaxstatus').html(msg);
+}
+
+function current_ms_time ()
+{
+	var date = new Date();
+	return date.getTime();
+	
+}
+
+function lSet (key, value)
+{
+     return localStorage.setItem(key, JSON.stringify(value));
+}
+
+function lGet (key)
+{
+	var val = localStorage.getItem(key);
+	   if (val) {
+		val = JSON.parse(val);
+		return val;	  
+	}else {
+		return val;
+	}
+}
+
