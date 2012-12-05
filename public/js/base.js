@@ -47,7 +47,11 @@ $(document).ready(function() {
    
     //get data from server
  //   projects.get();	
-  
+  //save now 
+  $("a.save").live( 'click',function() {
+      store_to_server();
+  });
+
   // Add a task
   $("#tasks-form").submit(function(){
       if ($("#task").val() != "" ) {
@@ -158,6 +162,46 @@ $(document).ready(function() {
 //                 // Add the abort button here.
 //               }, 5000); 
 }); 
+
+//1.$.ajax带json数据的异步请求
+function store_to_server(){  
+     $.ajax( {  
+    url:'save/list',
+    type:'post',  
+    cache:false,  
+    dataType:'json', 
+    data:{  
+             'ADD' : get_list('ADD'),  
+             'DEL' : get_list( 'DEL' ),  
+             'MODIFY' : get_list( 'MODIFY' ),  
+    },  
+    success:function(data) {  
+        if(data.msg =="true" ){  
+            // view("修改成功！");  
+            alert("修改成功！");  
+            window.location.reload();  
+        }else{  
+            view(data.msg);  
+        }  
+     },  
+     error : function() {  
+          // view("异常！");  
+          alert("异常！");  
+     }  
+  });
+}
+
+function get_list( tag ){
+    var tagList=new Array();
+    var changeList = lGet( "mtask-Change" );
+    for(var i=0;i<changeList.length;i++){
+         var item=lGet( changeList[i]);
+         if (item.Change == tag){
+             tagList.push(item);
+         }
+    }
+    return tagList;
+}
 
 function ajaxstatus (msg)
 {
