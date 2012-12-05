@@ -125,9 +125,7 @@ $(document).ready(function() {
  function editSave(content,id){
       var editData=lGet(id);
       editData.Time=current_ms_time();
-      if (editData.Gid){  
-          editData.Change = "MODIFY";
-      };
+      editData.Change = "MODIFY";
       editData.List   = content.current;
       lSet( id,editData );
       changeFun(changeList,"mtask-"+data.Id);
