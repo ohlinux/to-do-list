@@ -141,8 +141,9 @@ func staticDirHandler(mux *http.ServeMux, prefix string, staticDir string, flags
 }
 
 func saveHandler( w http.ResponseWriter,r *http.Request ){
-    postData:=r.FormValue("version")
-    log.Println( postData )
+    //postData:=r.FormValue("version")
+    r.ParseForm()
+    log.Println( r.FormValue("version"))
     output:=make( map[string]interface{})
     output[ "msg" ]="true"
     outputJSON,err := json.Marshal(output)

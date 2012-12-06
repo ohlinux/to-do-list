@@ -163,7 +163,6 @@ $(document).ready(function() {
 //               }, 5000); 
 }); 
 
-//1.$.ajax带json数据的异步请求
 function store_to_server(){  
      $.ajax( {  
     url:'save',
