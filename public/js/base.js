@@ -166,20 +166,24 @@ $(document).ready(function() {
 //1.$.ajax带json数据的异步请求
 function store_to_server(){  
      $.ajax( {  
-    url:'save/list',
+    url:'save',
     type:'post',  
-    cache:false,  
+    //cache:false,  
     dataType:'json', 
-    data:{  
-             'ADD' : get_list('ADD'),  
-             'DEL' : get_list( 'DEL' ),  
-             'MODIFY' : get_list( 'MODIFY' ),  
+    contentType: "aplication/json; charset=utf-8",
+    data:{
+        'version' : 1,
+       // 'data'    : encodeURIComponent(JSON.stringify({  
+       //            'ADD' : get_list('ADD'),  
+       //            'DEL' : get_list( 'DEL' ),  
+       //            'MODIFY' : get_list( 'MODIFY' ),  
+       //             })),
     },  
     success:function(data) {  
         if(data.msg =="true" ){  
             // view("修改成功！");  
             alert("修改成功！");  
-            window.location.reload();  
+           // window.location.reload();  
         }else{  
             view(data.msg);  
         }  

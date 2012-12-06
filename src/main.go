@@ -10,6 +10,7 @@ import (
     "path"
     "strings"
     "runtime/debug"
+    "encoding/json"
 )
 
 const(
@@ -139,6 +140,19 @@ func staticDirHandler(mux *http.ServeMux, prefix string, staticDir string, flags
     })
 }
 
+func saveHandler( w http.ResponseWriter,r *http.Request ){
+    postData:=r.FormValue("version")
+    log.Println( postData )
+    output:=make( map[string]interface{})
+    output[ "msg" ]="true"
+    outputJSON,err := json.Marshal(output)
+    if err!=nil{
+        panic(err)
+    }
+    w.Write(outputJSON )
+}
+
+
 func main(){
     mux := http.NewServeMux()
 //    http.Handle("/css/", http.FileServer(http.Dir("public")))
@@ -148,6 +162,7 @@ func main(){
     mux.HandleFunc("/",safeHandler(listHandler))
   //  mux.HandleFunc("/view",safeHandler(  viewHandler ))
   //  mux.HandleFunc("/upload",safeHandler( uploadHandler ))
+    mux.HandleFunc("/save",safeHandler( saveHandler ))
     err := http.ListenAndServe( ":8080",mux )
     if err != nil {
         log.Fatal( "ListenAndServe: ",err.Error() )
