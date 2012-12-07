@@ -143,18 +143,38 @@ func staticDirHandler(mux *http.ServeMux, prefix string, staticDir string, flags
 
 func saveHandler( w http.ResponseWriter,r *http.Request ){
     postData,err:=url.QueryUnescape(r.FormValue("data"))
-    if err !=nil {
-        panic( err )
-    } 
+    check( err )
     data := make( map[string]interface{})
     err =json.Unmarshal([]byte(postData),&data)
-    log.Println(data["ADD"])
+    check( err )
+    for i , iv := range data {
+        log.Println( i )
+        switch v2 := iv.(type){
+        case []interface{}:
+            for j,jv := range v2 {
+                log.Println( j,jv )
+                switch v3 := jv.(type){
+                    case interface{}:
+                        d,ok:=v3.(map[string]string)
+                        if ok {
+                            for x,xv := range d{ 
+                              log.Println( x,xv )
+                            }
+                        }else{
+                                log.Println( "not ok" )
+                        }
+                       // log.Println( v3["List"] )
+                       // for x,xv := range v3{
+                       //   log.Println( x,xv )
+                       // }
+                }
+            }
+        }
+    }
     output:=make( map[string]interface{})
     output[ "msg" ]="true"
     outputJSON,err := json.Marshal(output)
-    if err!=nil{
-        panic(err)
-    }
+    check( err )
     w.Write(outputJSON )
 }
 
