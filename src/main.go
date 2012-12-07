@@ -11,6 +11,7 @@ import (
     "strings"
     "runtime/debug"
     "encoding/json"
+    "net/url"
 )
 
 const(
@@ -141,9 +142,13 @@ func staticDirHandler(mux *http.ServeMux, prefix string, staticDir string, flags
 }
 
 func saveHandler( w http.ResponseWriter,r *http.Request ){
-    //postData:=r.FormValue("version")
-    r.ParseForm()
-    log.Println( r.FormValue("version"))
+    postData,err:=url.QueryUnescape(r.FormValue("data"))
+    if err !=nil {
+        panic( err )
+    } 
+    data := make( map[string]interface{})
+    err =json.Unmarshal([]byte(postData),&data)
+    log.Println(data["ADD"])
     output:=make( map[string]interface{})
     output[ "msg" ]="true"
     outputJSON,err := json.Marshal(output)
@@ -152,7 +157,6 @@ func saveHandler( w http.ResponseWriter,r *http.Request ){
     }
     w.Write(outputJSON )
 }
-
 
 func main(){
     mux := http.NewServeMux()
@@ -169,4 +173,3 @@ func main(){
         log.Fatal( "ListenAndServe: ",err.Error() )
     }
 }
-

@@ -164,19 +164,18 @@ $(document).ready(function() {
 }); 
 
 function store_to_server(){  
-     $.ajax( {  
+     $.ajax({  
     url:'save',
     type:'post',  
     //cache:false,  
     dataType:'json', 
-    contentType: "aplication/json; charset=utf-8",
     data:{
-        'version' : 1,
-       // 'data'    : encodeURIComponent(JSON.stringify({  
-       //            'ADD' : get_list('ADD'),  
-       //            'DEL' : get_list( 'DEL' ),  
-       //            'MODIFY' : get_list( 'MODIFY' ),  
-       //             })),
+        'version':1,
+        'data'    : encodeURIComponent(JSON.stringify({  
+                   'ADD' : get_list('ADD'),  
+                   'DEL' : get_list( 'DEL' ),  
+                   'MODIFY' : get_list( 'MODIFY' ),  
+                    })),
     },  
     success:function(data) {  
         if(data.msg =="true" ){  
