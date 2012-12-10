@@ -12,6 +12,9 @@ import (
     "runtime/debug"
     "encoding/json"
     "net/url"
+    "labix.org/v2/mgo"
+//    "labix.org/v2/mgo/bson"
+
 )
 
 const(
@@ -20,6 +23,21 @@ const(
     ListDir= 0x0001
 )
 
+type GetData struct {
+   ADD  []*ListData 
+   MODIFY []*ListData
+   DEL []*ListData
+}
+
+type ListData struct{
+    List string
+    Project string
+    Status int
+    Change string
+    Id int 
+    Time int64
+    Gid string
+}
 var templates = make(  map[string]*template.Template)
 
 func init(){
@@ -144,39 +162,51 @@ func staticDirHandler(mux *http.ServeMux, prefix string, staticDir string, flags
 func saveHandler( w http.ResponseWriter,r *http.Request ){
     postData,err:=url.QueryUnescape(r.FormValue("data"))
     check( err )
-    data := make( map[string]interface{})
+    var data GetData 
     err =json.Unmarshal([]byte(postData),&data)
     check( err )
-    for i , iv := range data {
-        log.Println( i )
-        switch v2 := iv.(type){
-        case []interface{}:
-            for j,jv := range v2 {
-                log.Println( j,jv )
-                switch v3 := jv.(type){
-                    case interface{}:
-                        d,ok:=v3.(map[string]string)
-                        if ok {
-                            for x,xv := range d{ 
-                              log.Println( x,xv )
-                            }
-                        }else{
-                                log.Println( "not ok" )
-                        }
-                       // log.Println( v3["List"] )
-                       // for x,xv := range v3{
-                       //   log.Println( x,xv )
-                       // }
-                }
-            }
+//mongodb opration 
+    mongoCon, err := mgo.Dial("127.0.0.1:27018")
+    if err != nil {
+        panic(err)
+    }
+    defer mongoCon.Close()
+
+    mongoCon.SetMode(mgo.Monotonic, true)
+
+    // 获取数据库,获取集合
+    l := mongoCon.DB("test_go").C("list")
+
+    for _,va := range data.ADD {
+        err = l.Insert(va)
+        if err != nil {
+            panic(err)
         }
     }
+
     output:=make( map[string]interface{})
     output[ "msg" ]="true"
     outputJSON,err := json.Marshal(output)
     check( err )
     w.Write(outputJSON )
 }
+
+//  存储数据
+//    m1 := adminUser{"user1", "111"}
+//    m2 := adminUser{"user2", "222"}
+//    err = c.Insert(&m1,&m2)
+//    if err != nil {
+//        panic(err)
+//    }
+//  读取数据
+//    result := adminUser{}
+//    err = c.Find(&bson.M{"user":admin_name}).One(&result)
+//    if err != nil {
+//        OutputJson(w, 0, "用户名或者密码输入错误", nil)
+//        return
+//    }
+
+
 
 func main(){
     mux := http.NewServeMux()

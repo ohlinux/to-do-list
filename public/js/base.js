@@ -177,7 +177,7 @@ function store_to_server(){
                    'MODIFY' : get_list( 'MODIFY' ),  
                     })),
     },  
-    success:function(data) {  
+    success:function(data) {
         if(data.msg =="true" ){  
             // view("修改成功！");  
             alert("修改成功！");  
@@ -185,7 +185,7 @@ function store_to_server(){
         }else{  
             view(data.msg);  
         }  
-     },  
+     },
      error : function() {  
           // view("异常！");  
           alert("异常！");  
