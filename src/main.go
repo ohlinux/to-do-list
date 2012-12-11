@@ -13,7 +13,7 @@ import (
     "encoding/json"
     "net/url"
     "labix.org/v2/mgo"
-//    "labix.org/v2/mgo/bson"
+    "labix.org/v2/mgo/bson"
 
 )
 
@@ -188,19 +188,28 @@ func saveHandler( w http.ResponseWriter,r *http.Request ){
 
     for _,va := range data.ADD {
         list := &va
-//         list := mongoData{
-//             Gid    : va.Gid,
-//             Project: va.Project,
-//             Time   : va.Time,
-//             Status : va.Status,
-//             List   : va.List,
-//         }
         err = l.Insert(list)
         if err != nil {
             panic(err)
         }
     }
 
+    for _,vb := range data.MODIFY{
+//  读取数据
+    result := ListData{}
+    err = l.Find(&bson.M{"gid":vb.Gid}).One(&result)
+    if err != nil {
+        log.Println( "can't find",vb.Gid )
+    }else{
+       if vb.Time > result.Time {
+          log.Println( "need insert" ) 
+          err = l.Insert(&vb)
+          if err != nil {
+              panic(err)
+          }
+       }
+    }
+  }
     output:=make( map[string]interface{})
     output[ "msg" ]="true"
     outputJSON,err := json.Marshal(output)
@@ -215,14 +224,6 @@ func saveHandler( w http.ResponseWriter,r *http.Request ){
 //    if err != nil {
 //        panic(err)
 //    }
-//  读取数据
-//    result := adminUser{}
-//    err = c.Find(&bson.M{"user":admin_name}).One(&result)
-//    if err != nil {
-//        OutputJson(w, 0, "用户名或者密码输入错误", nil)
-//        return
-//    }
-
 
 
 func main(){
