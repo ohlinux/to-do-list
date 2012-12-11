@@ -30,14 +30,23 @@ type GetData struct {
 }
 
 type ListData struct{
-    List string
+    Uid string
+    Gid string
     Project string
     Status int
     Change string
-    Id int 
     Time int64
-    Gid string
+    List string
 }
+
+type mongoData struct{
+    Gid  string
+    Project string
+    Time    int64
+    Status  int
+    List    string
+}
+
 var templates = make(  map[string]*template.Template)
 
 func init(){
@@ -175,10 +184,18 @@ func saveHandler( w http.ResponseWriter,r *http.Request ){
     mongoCon.SetMode(mgo.Monotonic, true)
 
     // 获取数据库,获取集合
-    l := mongoCon.DB("test_go").C("list")
+   l := mongoCon.DB("test_go").C("list")
 
     for _,va := range data.ADD {
-        err = l.Insert(va)
+        list := &va
+//         list := mongoData{
+//             Gid    : va.Gid,
+//             Project: va.Project,
+//             Time   : va.Time,
+//             Status : va.Status,
+//             List   : va.List,
+//         }
+        err = l.Insert(list)
         if err != nil {
             panic(err)
         }
