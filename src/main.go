@@ -24,9 +24,7 @@ const(
 )
 
 type GetData struct {
-   ADD  []*ListData 
-   MODIFY []*ListData
-   DEL []*ListData
+   Item []*ListData 
 }
 
 type ListData struct{
@@ -176,40 +174,59 @@ func saveHandler( w http.ResponseWriter,r *http.Request ){
     check( err )
 //mongodb opration 
     mongoCon, err := mgo.Dial("127.0.0.1:27018")
-    if err != nil {
-        panic(err)
-    }
+    check( err )
+
     defer mongoCon.Close()
 
     mongoCon.SetMode(mgo.Monotonic, true)
 
-    // 获取数据库,获取集合
+// 获取数据库,获取集合
    l := mongoCon.DB("test_go").C("list")
 
-    for _,va := range data.ADD {
-        list := &va
-        err = l.Insert(list)
-        if err != nil {
-            panic(err)
+    for _,va := range data.Item{
+
+        switch va.Change {
+            case "ADD":
+                log.Println( "add item ",va.List )
+                // 存储数据
+                    result := ListData{}
+                    err = l.Find(&bson.M{"gid":va.Gid}).One(&result)
+                    if err != nil {
+                        err = l.Insert(&va)
+                //      check( err )
+                    }
+            case "MODIFY":
+                log.Println( "Modify item ",va.List )
+                //  读取数据
+                    result := ListData{}
+                    err = l.Find(&bson.M{"gid":va.Gid}).One(&result)
+                    if err != nil {
+                        log.Println( "can't find",va.Gid )
+                        err = l.Insert(&va)
+                        check( err )
+                    }else{
+                       if va.Time > result.Time {
+                //update mongodb data
+                           oldList := bson.M{ "gid":va.Gid }
+                           err := l.Update(oldList,&va)
+                           check( err )
+                       }
+                    }
+            case "DEL":
+                log.Println( "delete item ",va.List )
+                result := ListData{}
+                err = l.Find(&bson.M{"gid":va.Gid}).One(&result)
+                if err == nil {
+                    log.Println( "delete it" )
+                    err = l.Remove( result )
+                    check( err )
+                }
+           default :
+            log.Println( "change content is error ",va.Change )
+            return
         }
     }
 
-    for _,vb := range data.MODIFY{
-//  读取数据
-    result := ListData{}
-    err = l.Find(&bson.M{"gid":vb.Gid}).One(&result)
-    if err != nil {
-        log.Println( "can't find",vb.Gid )
-    }else{
-       if vb.Time > result.Time {
-          log.Println( "need insert" ) 
-          err = l.Insert(&vb)
-          if err != nil {
-              panic(err)
-          }
-       }
-    }
-  }
     output:=make( map[string]interface{})
     output[ "msg" ]="true"
     outputJSON,err := json.Marshal(output)
@@ -217,19 +234,9 @@ func saveHandler( w http.ResponseWriter,r *http.Request ){
     w.Write(outputJSON )
 }
 
-//  存储数据
-//    m1 := adminUser{"user1", "111"}
-//    m2 := adminUser{"user2", "222"}
-//    err = c.Insert(&m1,&m2)
-//    if err != nil {
-//        panic(err)
-//    }
-
 
 func main(){
     mux := http.NewServeMux()
-//    http.Handle("/css/", http.FileServer(http.Dir("public")))
-//    http.Handle("/js/", http.FileServer(http.Dir("public")))
 
     staticDirHandler( mux,"/public/","./public",0 )
     mux.HandleFunc("/",safeHandler(listHandler))

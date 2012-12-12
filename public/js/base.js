@@ -171,11 +171,9 @@ function store_to_server(){
     dataType:'json', 
     data:{
         'version':1,
-        'data'    : encodeURIComponent(JSON.stringify({  
-                   'ADD' : get_list('ADD'),  
-                   'DEL' : get_list( 'DEL' ),  
-                   'MODIFY' : get_list( 'MODIFY' ),  
-                    })),
+        'data'    : encodeURIComponent(JSON.stringify({
+                    'Item':get_list(),
+        })),
     },  
     success:function(data) {
         if(data.msg =="true" ){  
@@ -198,7 +196,9 @@ function get_list( tag ){
     var changeList = lGet( "mtask-Change" );
     for(var i=0;i<changeList.length;i++){
          var item=lGet( changeList[i]);
-         if (item.Change == tag){
+         if ( ! tag ){
+             tagList.push(item);
+          }else if (item.Change == tag){
              tagList.push(item);
          }
     }
