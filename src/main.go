@@ -27,6 +27,18 @@ type GetData struct {
    Item []*ListData 
 }
 
+type IndexData struct {
+    Index  string
+    Num    int64
+}
+
+type UserData struct{
+    Uid  int64
+    Username  string
+    Password  string
+    Email    string
+}
+
 type ListData struct{
     Uid string
     Gid string
@@ -85,6 +97,88 @@ func isExists( path string ) bool {
         return true
     }
     return os.IsExist( err )
+}
+
+func registerHandler( w http.ResponseWriter,r *http.Request ){
+    //uid := 1
+    if r.Method == "GET"{  
+     locals := make( map[string]interface{})
+     err := renderHtml( w,"register",locals )
+     check( err )
+     return
+    }
+
+    if r.Method == "POST"{
+//mongodb opration 
+    mongoCon, err := mgo.Dial("127.0.0.1:27018")
+    check( err )
+    defer mongoCon.Close()
+    mongoCon.SetMode(mgo.Monotonic, true)
+
+   
+// 获取数据库,获取集合
+   l := mongoCon.DB("test_go").C("user")
+   i := mongoCon.DB( "test_go").C( "index" )
+   var doc IndexData
+   change := mgo.Change{
+       Update: bson.M{"$inc": bson.M{"num": 1}},
+       ReturnNew: true,
+   }
+   _, err = i.Find(bson.M{"index":"uid"}).Apply(change, &doc)
+   if err !=nil {
+       indexUid := IndexData {
+           Index : "uid",
+           Num   :  1,
+       }
+       err := i.Insert( indexUid )
+       check (err)
+       doc.Num = 1
+   }
+   log.Println(doc.Num)
+   users := UserData {
+       Uid : doc.Num,
+       Username : r.FormValue( "username" ),
+       Password : r.FormValue( "password" ),
+       Email    : r.FormValue( "email" ),
+   }
+   err = l.Insert( users )
+   check( err )
+   http.Redirect(w, r,"login", http.StatusFound)
+   return
+ }
+
+}
+
+func loginHandler( w http.ResponseWriter,r *http.Request ){
+     if r.Method == "GET"{  
+     locals := make( map[string]interface{})
+     err := renderHtml( w,"login",locals )
+     check( err )
+     return
+    }
+
+    if r.Method == "POST"{
+//mongodb opration 
+    mongoCon, err := mgo.Dial("127.0.0.1:27018")
+    check( err )
+    defer mongoCon.Close()
+    mongoCon.SetMode(mgo.Monotonic, true)
+    l := mongoCon.DB("test_go").C("user")
+    user := r.FormValue( "username" )
+    passwd := r.FormValue( "password" )
+    result := UserData{}
+    err = l.Find(&bson.M{"username":user}).One(&result)
+    if err != nil {
+       log.Println( "not found the username ",user) 
+       panic( err )
+    }
+    if passwd  == result.Password{
+        http.Redirect(w, r,"/", http.StatusFound)
+    }else{
+        log.Println( "password is not right",passwd )
+    }
+    return
+    }
 }
 
 func uploadHandler( w http.ResponseWriter,r *http.Request ){
@@ -240,6 +334,8 @@ func main(){
 
     staticDirHandler( mux,"/public/","./public",0 )
     mux.HandleFunc("/",safeHandler(listHandler))
+    mux.HandleFunc("/register",safeHandler(registerHandler))
+    mux.HandleFunc("/login",safeHandler(loginHandler))
   //  mux.HandleFunc("/view",safeHandler(  viewHandler ))
   //  mux.HandleFunc("/upload",safeHandler( uploadHandler ))
     mux.HandleFunc("/save",safeHandler( saveHandler ))
