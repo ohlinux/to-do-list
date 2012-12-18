@@ -14,7 +14,11 @@ import (
     "net/url"
     "labix.org/v2/mgo"
     "labix.org/v2/mgo/bson"
-
+    "math/rand"
+    "crypto/sha1"
+    "time"
+    "strconv"
+    "fmt"
 )
 
 const(
@@ -37,6 +41,7 @@ type UserData struct{
     Username  string
     Password  string
     Email    string
+    Random    string
 }
 
 type ListData struct{
@@ -172,8 +177,25 @@ func loginHandler( w http.ResponseWriter,r *http.Request ){
        log.Println( "not found the username ",user) 
        panic( err )
     }
+    
     if passwd  == result.Password{
-        http.Redirect(w, r,"/", http.StatusFound)
+      //set cookie
+      //// create random string
+      randNum := rand.New(rand.NewSource(time.Now().UnixNano()))
+      h := sha1.New()
+      randString:=result.Password+ strconv.Itoa(randNum.Intn(100))
+      log.Println( "rand string ",randString )
+      io.WriteString(h,randString)
+      hashString :=fmt.Sprintf("%x",h.Sum(nil))
+      log.Println(hashString)
+      err = l.Update(bson.M{"username":user },bson.M{"$set": bson.M{ "random" :hashString}})
+      check( err )
+      cookie1 := http.Cookie{Name: "value", Value: hashString}
+      cookie2 := http.Cookie{Name: "username", Value: user}
+      http.SetCookie(w, &cookie1)
+      http.SetCookie(w, &cookie2)
+      log.Println("set cookie")
+      http.Redirect(w, r,"/", http.StatusFound)
     }else{
         log.Println( "password is not right",passwd )
     }
@@ -218,7 +240,7 @@ func viewHandler( w http.ResponseWriter,r *http.Request ){
     http.ServeFile( w,r,imagePath )
 }
 
-func listHandler( w http.ResponseWriter,r *http.Request){
+func indexHandler( w http.ResponseWriter,r *http.Request){
 //    fileInfoArr,err := ioutil.ReadDir( "./uploads" )
 //    check( err )
     locals := make( map[string]interface{})
@@ -228,8 +250,24 @@ func listHandler( w http.ResponseWriter,r *http.Request){
 //    }
 //
 //    locals["images"] = images
-     err := renderHtml( w,"todo",locals )
+    //
+//get cookie random string 
+    mongoCon, err := mgo.Dial("127.0.0.1:27018")
     check( err )
+    defer mongoCon.Close()
+    mongoCon.SetMode(mgo.Monotonic, true)
+    l := mongoCon.DB("test_go").C("user")
+
+    // 获取cookie
+    cookieUser,err:= r.Cookie("username")
+    cookieValue,err:=r.Cookie( "value" )
+    result := UserData{}
+    err = l.Find(bson.M{"username":cookieUser.Value}).One(&result)
+    if err != nil || cookieValue.Value != result.Random{
+        http.Redirect(w, r, "/login", http.StatusFound)
+    }
+     err = renderHtml( w,"todo",locals )
+     check( err )
 }
 
 func safeHandler( fn http.HandlerFunc ) http.HandlerFunc{
@@ -333,7 +371,7 @@ func main(){
     mux := http.NewServeMux()
 
     staticDirHandler( mux,"/public/","./public",0 )
-    mux.HandleFunc("/",safeHandler(listHandler))
+    mux.HandleFunc("/",safeHandler(indexHandler))
     mux.HandleFunc("/register",safeHandler(registerHandler))
     mux.HandleFunc("/login",safeHandler(loginHandler))
   //  mux.HandleFunc("/view",safeHandler(  viewHandler ))
