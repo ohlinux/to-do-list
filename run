@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+CURDIR=`pwd`
+OLDGOPATH="$GOPATH"
+export GOPATH="$CURDIR:"
+
+gofmt -tabs=false -tabwidth=4 -w src
+
+go install todolist
+
+export GOPATH="$OLDGOPATH"
+
+echo 'finished'
