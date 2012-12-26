@@ -9,16 +9,19 @@ import (
     "io/ioutil"
     "labix.org/v2/mgo"
     "labix.org/v2/mgo/bson"
+    "os/signal"
+    "os"
+    "syscall"
     "log"
     "math/rand"
     "net/http"
     "net/url"
-    "os"
     "path"
     "runtime/debug"
     "strconv"
     "strings"
     "time"
+    "net"
 )
 
 const (
@@ -65,6 +68,7 @@ type mongoData struct {
 var templates = make(map[string]*template.Template)
 
 func init() {
+
     fileInfoArr, err := ioutil.ReadDir(TEMPLATE_DIR)
     if err != nil {
         panic(err)
@@ -327,18 +331,75 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
     w.Write(outputJSON)
 }
 
+//func signalHandle() {
+//    for {
+//        ch := make(chan os.Signal)
+//        signal.Notify(ch, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGUSR2,syscall.SIGHUP)
+//        sig := <-ch
+//        log.Println("Signal received:", sig)
+//        switch sig {
+//        default:
+//            log.Println("get sig=",sig)
+//        case syscall.SIGHUP:
+//            log.Println("get sighup sighup")     //Utils.LogInfo是我自己封装的输出信息函数
+//        case syscall.SIGINT:
+//            os.Exit(1)
+//        case syscall.SIGUSR1:
+//            log.Println("usr1")
+//        case syscall.SIGUSR2:
+//            log.Println("usr2 ")
+//
+//        }
+//    }
+//}
+
 func main() {
     mux := http.NewServeMux()
-
     staticDirHandler(mux, "/public/", "./public", 0)
     mux.HandleFunc("/", safeHandler(indexHandler))
     mux.HandleFunc("/register", safeHandler(registerHandler))
     mux.HandleFunc("/login", safeHandler(loginHandler))
-    //  mux.HandleFunc("/view",safeHandler(  viewHandler ))
-    //  mux.HandleFunc("/upload",safeHandler( uploadHandler ))
     mux.HandleFunc("/save", safeHandler(saveHandler))
-    err := http.ListenAndServe(":8080", mux)
-    if err != nil {
-        log.Fatal("ListenAndServe: ", err.Error())
+
+    lis,err := net.Listen( "tcp",":8080" )
+    check( err )
+
+    go func(){
+        http.Serve( lis,mux )
+        //err := http.ListenAndServe(":8080", mux)
+        if err != nil {
+            log.Fatal("ListenAndServe: ", err.Error())
+        }
+    }()
+
+    ch := make(chan os.Signal)
+    signal.Notify(ch, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGUSR2,syscall.SIGHUP)
+    //#WORKER is a new process tag.
+    //newArgs := append(os.Args, "#WORKER")
+    attr := syscall.ProcAttr{
+        Env: os.Environ(),
+    }
+    for {
+        sig := <-ch
+        //log.Println("Signal received:", sig)
+        switch sig {
+        case syscall.SIGHUP:
+            log.Println("get sighup sighup")
+        case syscall.SIGINT:
+            log.Println("get SIGINT ,exit!")
+            os.Exit(1)
+        case syscall.SIGUSR1:
+            log.Println("usr1")
+            //close the net
+            lis.Close()
+            log.Println( "close connect" )
+            if _,_,err:=syscall.StartProcess(os.Args[0],os.Args,&attr);err !=nil{
+                check(err)
+            }
+            //exit current process.
+            return
+        case syscall.SIGUSR2:
+            log.Println("usr2 ")
+        }
     }
 }
