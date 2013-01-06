@@ -12,7 +12,7 @@ import (
     "os/signal"
     "os"
     "syscall"
-    "log"
+//    "log"
     "math/rand"
     "net/http"
     "net/url"
@@ -22,12 +22,16 @@ import (
     "strings"
     "time"
     "net"
+//    "log4go"
 )
 
+import log "log4go"
+
 const (
-    UPLOAD_DIR   = "./uploads"
+//    UPLOAD_DIR   = "./uploads"
     TEMPLATE_DIR = "./template/"
     ListDir      = 0x0001
+    filename = "./log/flw.log"
 )
 
 type GetData struct {
@@ -48,22 +52,24 @@ type UserData struct {
 }
 
 type ListData struct {
-    Uid     string
-    Gid     string
-    Project string
-    Status  int
-    Change  string
-    Time    int64
-    List    string
+    Username    string 
+    Gid         int64 
+    Project     string
+    Status      int
+    Change      string
+    Time        int64
+    List        string
+    Version     int
+    Id          int
 }
 
-type mongoData struct {
-    Gid     string
-    Project string
-    Time    int64
-    Status  int
-    List    string
-}
+//type mongoData struct {
+//    Gid     int64
+//    Project string
+//    Time    int64
+//    Status  int
+//    List    string
+//}
 
 var templates = make(map[string]*template.Template)
 
@@ -81,7 +87,7 @@ func init() {
             continue
         }
         templatePath = TEMPLATE_DIR + "/" + templateName
-        log.Println("Loading template:", templatePath)
+        log.Info("Loading template:"+templatePath)
         t := template.Must(template.ParseFiles(templatePath))
         tmpl := strings.Split(templateName, ".html")[0]
         templates[tmpl] = t
@@ -141,7 +147,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
             check(err)
             doc.Num = 1
         }
-        log.Println(doc.Num)
+        log.Info(doc.Num)
         users := UserData{
             Uid:      doc.Num,
             Username: r.FormValue("username"),
@@ -157,6 +163,7 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
+    milliseconds:=time.Now().UnixNano()/10E5
     if r.Method == "GET" {
         locals := make(map[string]interface{})
         err := renderHtml(w, "login", locals)
@@ -176,47 +183,37 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
         result := UserData{}
         err = l.Find(&bson.M{"username": user}).One(&result)
         if err != nil {
-            log.Println("not found the username ", user)
+            log.Info("not found the username "+ user)
             panic(err)
         }
 
         if passwd == result.Password {
             //set cookie
             // create random string
-            randNum := rand.New(rand.NewSource(time.Now().UnixNano()))
+            randNum := rand.New(rand.NewSource(milliseconds))
             h := sha1.New()
             randString := result.Password + strconv.Itoa(randNum.Intn(100))
-            log.Println("rand string ", randString)
+            log.Info("rand string "+ randString)
             io.WriteString(h, randString)
             hashString := fmt.Sprintf("%x", h.Sum(nil))
-            log.Println(hashString)
+            log.Info(hashString)
             err = l.Update(bson.M{"username": user}, bson.M{"$set": bson.M{"random": hashString}})
             check(err)
             cookie1 := http.Cookie{Name: "value", Value: hashString}
             cookie2 := http.Cookie{Name: "username", Value: user}
             http.SetCookie(w, &cookie1)
             http.SetCookie(w, &cookie2)
-            log.Println("set cookie")
+            log.Info("set cookie!")
             http.Redirect(w, r, "/", http.StatusFound)
         } else {
-            log.Println("password is not right", passwd)
+            log.Info("password is not right "+ passwd)
         }
         return
     }
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-    //    fileInfoArr,err := ioutil.ReadDir( "./uploads" )
-    //    check( err )
     locals := make(map[string]interface{})
-    //    images:=[]string{}
-    //    for _,fileInfo := range fileInfoArr{
-    //        images = append( images,fileInfo.Name() )
-    //    }
-    //
-    //    locals["images"] = images
-    //
-    //get cookie random string 
     mongoCon, err := mgo.Dial("127.0.0.1:27018")
     check(err)
     defer mongoCon.Close()
@@ -225,11 +222,13 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
     // 获取cookie
     cookieUser, err := r.Cookie("username")
-    cookieValue, err := r.Cookie("value")
-    result := UserData{}
-    err = l.Find(bson.M{"username": cookieUser.Value}).One(&result)
-    if err != nil || cookieValue.Value != result.Random {
-        http.Redirect(w, r, "/login", http.StatusFound)
+    if err == nil {  
+        cookieValue, err := r.Cookie("value")
+        result := UserData{}
+        err = l.Find(bson.M{"username": cookieUser.Value}).One(&result)
+        if err != nil || cookieValue.Value != result.Random {
+            http.Redirect(w, r, "/login", http.StatusFound)
+        }
     }
     err = renderHtml(w, "todo", locals)
     check(err)
@@ -241,8 +240,8 @@ func safeHandler(fn http.HandlerFunc) http.HandlerFunc {
             e := recover()
             if err, ok := e.(error); ok {
                 http.Error(w, err.Error(), http.StatusInternalServerError)
-                log.Println("WARN: panic in %v. - %v", fn, err)
-                log.Println(string(debug.Stack()))
+                log.Info("WARN: panic in %v. - %v", fn, err)
+                log.Info(string(debug.Stack()))
             }
         }()
         fn(w, r)
@@ -266,6 +265,9 @@ func staticDirHandler(mux *http.ServeMux, prefix string, staticDir string, flags
 func saveHandler(w http.ResponseWriter, r *http.Request) {
     postData, err := url.QueryUnescape(r.FormValue("data"))
     check(err)
+    username, err := url.QueryUnescape(r.FormValue("username"))
+    check(err)
+
     var data GetData
     err = json.Unmarshal([]byte(postData), &data)
     check(err)
@@ -281,79 +283,101 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
     l := mongoCon.DB("test_go").C("list")
 
     for _, va := range data.Item {
-
+        va.Username=username
         switch va.Change {
         case "ADD":
-            log.Println("add item ", va.List)
+            log.Info("add item "+ va.List)
             // 存储数据
-            result := ListData{}
-            err = l.Find(&bson.M{"gid": va.Gid}).One(&result)
+            //result := ListData{}
+            //err = l.Find(&bson.M{"gid": va.Gid}).One(&result)
+            i := mongoCon.DB("test_go").C("index")
+            var doc IndexData
+            change := mgo.Change{
+                Update:    bson.M{"$inc": bson.M{"num": 1}},
+                ReturnNew: true,
+            }
+            _, err = i.Find(bson.M{"index": "gid"}).Apply(change, &doc)
             if err != nil {
-                err = l.Insert(&va)
-                //      check( err )
+                indexUid := IndexData{
+                    Index: "gid",
+                    Num:   1000,
+                }
+                err := i.Insert(indexUid)
+                check(err)
+                doc.Num = 1000
+            }
+            va.Gid=doc.Num 
+            va.Time=time.Now().UnixNano()/10E5
+            va.Change="SAVED"
+            va.Version=1
+            err = l.Insert(&va)
+            if err != nil {
+               log.Info( "find the same list "+va.List )
             }
         case "MODIFY":
-            log.Println("Modify item ", va.List)
+            log.Info("Modify item "+ va.List)
             //  读取数据
             result := ListData{}
             err = l.Find(&bson.M{"gid": va.Gid}).One(&result)
             if err != nil {
-                log.Println("can't find", va.Gid)
+                log.Info("can't find ", va.Gid)
                 err = l.Insert(&va)
                 check(err)
             } else {
-                if va.Time > result.Time {
+                if va.Version > result.Version || va.Time > result.Time {
                     //update mongodb data
                     oldList := bson.M{"gid": va.Gid}
+                    va.Time=time.Now().UnixNano()/10E5
+                    va.Version=result.Version+1
+                    va.Change="SAVED"
                     err := l.Update(oldList, &va)
                     check(err)
+                   }
                 }
-            }
         case "DEL":
-            log.Println("delete item ", va.List)
+            log.Info("delete item "+ va.List)
             result := ListData{}
             err = l.Find(&bson.M{"gid": va.Gid}).One(&result)
             if err == nil {
-                log.Println("delete it")
                 err = l.Remove(result)
                 check(err)
+                log.Info("have deleted it")
             }
         default:
-            log.Println("change content is error ", va.Change)
+            log.Info("change content is error "+ va.Change)
             return
         }
     }
-
+    
+    var outputResult []ListData
+    err = l.Find(&bson.M{"username": username}).All(&outputResult)
     output := make(map[string]interface{})
     output["msg"] = "true"
+    log.Info( "output data" ,outputResult )
+    output["data"]=outputResult
     outputJSON, err := json.Marshal(output)
     check(err)
     w.Write(outputJSON)
 }
 
-//func signalHandle() {
-//    for {
-//        ch := make(chan os.Signal)
-//        signal.Notify(ch, syscall.SIGINT, syscall.SIGUSR1, syscall.SIGUSR2,syscall.SIGHUP)
-//        sig := <-ch
-//        log.Println("Signal received:", sig)
-//        switch sig {
-//        default:
-//            log.Println("get sig=",sig)
-//        case syscall.SIGHUP:
-//            log.Println("get sighup sighup")     //Utils.LogInfo是我自己封装的输出信息函数
-//        case syscall.SIGINT:
-//            os.Exit(1)
-//        case syscall.SIGUSR1:
-//            log.Println("usr1")
-//        case syscall.SIGUSR2:
-//            log.Println("usr2 ")
-//
-//        }
-//    }
-//}
-
 func main() {
+
+        // Get a new logger instance
+        //log := l4g.NewLogger()
+
+        // Create a default logger that is logging messages of FINE or higher
+        log.AddFilter("file", log.FINE, log.NewFileLogWriter(filename, false))
+        //log.Close()
+
+        /* Can also specify manually via the following: (these are the defaults) */
+        flw := log.NewFileLogWriter(filename, false)
+        //flw.SetFormat("[%D %T] [%L] (%S) %M")
+        //flw.SetRotate(false)
+        //flw.SetRotateSize(0)
+        //flw.SetRotateLines(0)
+        //flw.SetRotateDaily(false)
+        log.AddFilter("file", log.FINE, flw)
+
     mux := http.NewServeMux()
     staticDirHandler(mux, "/public/", "./public", 0)
     mux.HandleFunc("/", safeHandler(indexHandler))
@@ -368,7 +392,7 @@ func main() {
         http.Serve( lis,mux )
         //err := http.ListenAndServe(":8080", mux)
         if err != nil {
-            log.Fatal("ListenAndServe: ", err.Error())
+            log.Critical("ListenAndServe: ", err.Error())
         }
     }()
 
@@ -381,25 +405,25 @@ func main() {
     }
     for {
         sig := <-ch
-        //log.Println("Signal received:", sig)
+        //log.Info("Signal received:", sig)
         switch sig {
         case syscall.SIGHUP:
-            log.Println("get sighup sighup")
+            log.Info("get sighup sighup")
         case syscall.SIGINT:
-            log.Println("get SIGINT ,exit!")
+            log.Info("get SIGINT ,exit!")
             os.Exit(1)
         case syscall.SIGUSR1:
-            log.Println("usr1")
+            log.Info("usr1")
             //close the net
             lis.Close()
-            log.Println( "close connect" )
+            log.Info( "close connect" )
             if _,_,err:=syscall.StartProcess(os.Args[0],os.Args,&attr);err !=nil{
                 check(err)
             }
             //exit current process.
             return
         case syscall.SIGUSR2:
-            log.Println("usr2 ")
+            log.Info("usr2 ")
         }
     }
 }

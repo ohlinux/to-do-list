@@ -3,18 +3,23 @@ if(!window.localStorage){
 }
 
 $(document).ready(function() { 
+    var index,entryid,keyList,changeList;
+    var date = new Date();
 
     last_update = current_ms_time();
     //Initial loading of tasks
     init();
     //if have cookie , try to get data from server.
-    if (getcookie( "username" )){
-        //list.get();
-        alert( "get data from server" );
+    var username=getcookie( "username" );
+    if (username){
+//        alert( username );
+        //first send the local data
+        //second get the response data
+    }else{
+        username="";
     }
     display();
 
-    //get data from server
     // projects.get();	
     //save now 
     $("a.save").live( 'click',function() {
@@ -25,27 +30,28 @@ $(document).ready(function() {
     // Add a task
     $("#tasks-form").submit(function(){
         if ($("#task").val() != "" ) {
-            entryid=index;
-            lSet( "mtask-index",++index );
+            entryid=lGet("mtask-index");
             var data={
                 List    : $("#task").val(),
                 Time    : current_ms_time(),
-                Id      : entryid,
+                Username :username,
                 Project : "work",
-                Gid     : unique_id(10),
                 Status  : 0,
                 Change  : "ADD",
+                Id      :entryid,
             };
-            lSet("mtask-"+data.Id,data);
-            keyList.push("mtask-"+data.Id);
+
+            lSet( "mtask-index",++index );
+            lSet("mtask-"+entryid,data);
+            keyList.push("mtask-"+entryid);
             lSet("mtask-keys",keyList);
 
             //add change list
-            changeFun(changeList,"mtask-"+data.Id);
+            changeFun(changeList,"mtask-"+entryid);
             //output add list
             var li=$( 'li.template' ).clone();
             $(li).attr( {
-                id : 'mtask-'+data.Id,
+                id : 'mtask-'+entryid,
                 style : "",
             });
             $(li).removeClass( 'template');
@@ -55,13 +61,10 @@ $(document).ready(function() {
                 type:"textarea",
                 editClasss:'note_are',
                 onSubmit:function(content){
-                    //var addid = ;
-                    // alert( data.Id);
                     editSave(content,$(this).parent().attr("id"));
                 },
             }); 
             $(li).prependTo('#tasks');
-            //$("#tasks").prepend($output);
             $(li).hide();
             $(li).slideDown();
             $("#mtask").val("");
@@ -75,7 +78,7 @@ $(document).ready(function() {
         type:"textarea",
         editClasss:'note_are',
         onSubmit:function(content){
-            editSave(content,$(this).parent().attr("id"))
+            editSave(content,$(this).parent().attr("id"));
         }
     }); 
 
@@ -83,11 +86,15 @@ $(document).ready(function() {
     $("#tasks li a").live("click", function() {
         removeKey=$(this).parent().attr("id");
         var delItem=lGet(removeKey);
+        //如果没有gid直接进行删除
+        alert( delItem.Gid);
         if (delItem.Gid){
-            delItem.Change="DEL"
-        changeFun(changeList,removeKey);
-    lSet( removeKey,delItem );
+            delItem.Change="DEL";
+            changeFun(changeList,removeKey);
+            lSet( removeKey,delItem );
         }else{
+            changeList.splice(jQuery.inArray(removeKey,changeList),1);
+            lSet( "mtask-Change",changeList );
             localStorage.removeItem(removeKey);
         }
         keyList.splice(jQuery.inArray(removeKey,keyList),1);
@@ -99,52 +106,61 @@ $(document).ready(function() {
     function editSave(content,id){
         var editData=lGet(id);
         editData.Time=current_ms_time();
-        editData.Change = "MODIFY";
         editData.List   = content.current;
+        //如果saved过才进行modify设置，并且有gid才进行veriosn加1
+        if (editData.Change == "SAVED"){
+            editData.Change = "MODIFY";
+            if (editData.Gid){
+                editData.Version=editData.Version+1;
+            }
+            changeFun(changeList,id);
+        }
         lSet( id,editData );
-        changeFun(changeList,"mtask-"+data.Id);
     } 
 
     function init(){  
-        var index = lGet("mtask-index");
+        index = lGet("mtask-index");
         if (!index ){
-            lSet("mtask-index",index=1);
+            lSet("mtask-index",index=0);
         }
 
         //init status list  ADD DEL MODIFY
         changeList=lGet("mtask-Change");
         if ( !changeList){
-            var changeList=new Array();
+            changeList=new Array();
+            lSet( "mtask-Change",changeList )
         }
 
-        var keyList= lGet( "mtask-keys");
+        keyList= lGet( "mtask-keys");
         if (!keyList){
-            var keyList=new Array();
             for( var i=0;i< localStorage.length ;i++ ){
                 var key=localStorage.key(i);
                 if ( /mtask-\d+/.test(key)){
                     keyList.push(key);
                 }
             }
+            keyList=new Array();
             lSet( "mtask-keys",keyList);
         }
     }
 
     function display(){
-        var keyList=lGet("mtask-keys");
-        for( var i = keyList.length-1; i >= 0 ; i--){  
-            key = keyList[i];
-            var data=lGet(key);
-            //clone the html
-            var li=$( 'li.template' ).clone();
-            $(li).attr( {
-                id : 'mtask-'+data.Id,
-                style : "",
-            });
-            $(li).removeClass( 'template');
-            $(li).find('span').text( data.List );
-            $(li).appendTo('#tasks');
-        }
+        keyList=lGet("mtask-keys");
+            if( keyList ){  
+                for( var i = keyList.length-1; i >= 0 ; i--){  
+                    key = keyList[i];
+                    var data=lGet(key);
+                    //clone the html
+                    var li=$( 'li.template' ).clone();
+                    $(li).attr( {
+                        id : 'mtask-'+data.Id,
+                        style : "",
+                    });
+                    $(li).removeClass( 'template');
+                    $(li).find('span').text( data.List );
+                    $(li).appendTo('#tasks');
+                }
+            }
     }
 
     function store_to_server(){
@@ -154,30 +170,47 @@ $(document).ready(function() {
         //cache:false,  
         dataType:'json', 
         data:{
-            'version':1,
-        'data'    : encodeURIComponent(JSON.stringify({
-            'Item':get_list(),
-        })),
+            'version': 1,
+            'username':getcookie("username"),
+            'data'   : encodeURIComponent(JSON.stringify({
+                          'Item'   : get_list(),
+                       })),
         },  
         success:function(data) {
             if(data.msg =="true" ){  
                 // view("修改成功！");  
                 alert("修改成功！");  
-                // window.location.reload();  
+                 restoreData(data.data); 
+                 window.location.reload();  
             }else{  
-                view(data.msg);  
+                alert(data.msg);  
             }  
         },
         error : function() {  
-            // view("异常！");  
             alert("异常！");  
         }  
         });
     }
 
+    //将得到的数据重新进行设置
+    function restoreData(data){
+        keysList=new Array();
+        changeList=new Array();
+        lSet( "mtask-keys", keysList);
+        if ( data ){  
+            for(var i=0;i<data.length;i++){
+                data[i].Id=i;
+                lSet( "mtask-"+i,data[i]);
+                keysList.push( "mtask-"+i);
+            }
+            lSet("mtask-keys", keysList);
+        }
+        lSet("mtask-Change",changeList);
+    }
+
     function get_list( tag ){
         var tagList=new Array();
-        var changeList = lGet( "mtask-Change" );
+        changeList = lGet( "mtask-Change" );
         for(var i=0;i<changeList.length;i++){
             var item=lGet( changeList[i]);
             if ( ! tag ){
@@ -197,7 +230,6 @@ $(document).ready(function() {
 
     function current_ms_time ()
     {
-        var date = new Date();
         return date.getTime();
     }
 
@@ -253,7 +285,6 @@ $(document).ready(function() {
             lSet( "mtask-Change",list);
         }
     }
-
 
 }); 
 
