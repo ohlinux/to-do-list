@@ -12,9 +12,7 @@ $(document).ready(function() {
     //if have cookie , try to get data from server.
     var username=getcookie( "username" );
     if (username){
-//        alert( username );
-        //first send the local data
-        //second get the response data
+        retrieve_from_server();
     }else{
         username="";
     }
@@ -36,7 +34,7 @@ $(document).ready(function() {
                 Time    : current_ms_time(),
                 Username :username,
                 Project : "work",
-                Status  : 0,
+                Status  : false,
                 Change  : "ADD",
                 Id      :entryid,
             };
@@ -145,6 +143,7 @@ $(document).ready(function() {
     }
 
     function display(){
+        $('#tasks').empty();
         keyList=lGet("mtask-keys");
             if( keyList ){  
                 for( var i = keyList.length-1; i >= 0 ; i--){  
@@ -178,10 +177,10 @@ $(document).ready(function() {
         },  
         success:function(data) {
             if(data.msg =="true" ){  
-                // view("修改成功！");  
-                alert("修改成功！");  
+                //alert("修改成功！");  
                  restoreData(data.data); 
-                 window.location.reload();  
+                 display();
+                 //window.location.reload();  
             }else{  
                 alert(data.msg);  
             }  
@@ -192,18 +191,44 @@ $(document).ready(function() {
         });
     }
 
+     function retrieve_from_server(){
+        $.ajax({  
+            url:'user_list',
+            type:'post',  
+            dataType:'json', 
+            data:{
+            'version': 1,
+            'username':username,
+            },  
+            success:function(data) {
+                if(data.msg =="true" ){  
+                // view("修改成功！");  
+                 restoreData(data.data); 
+				 ajaxstatus('Data loaded.');
+                 display();
+                 //window.location.reload();  
+                }else{  
+                    alert(data.msg);  
+            }  
+        },
+        error : function() {  
+		    ajaxstatus('Data load fail.');
+            alert("异常！");  
+        }  
+        });
+    }
+
     //将得到的数据重新进行设置
     function restoreData(data){
-        keysList=new Array();
-        changeList=new Array();
-        lSet( "mtask-keys", keysList);
+        localStorage.clear();
+        init();
         if ( data ){  
             for(var i=0;i<data.length;i++){
                 data[i].Id=i;
                 lSet( "mtask-"+i,data[i]);
-                keysList.push( "mtask-"+i);
+                keyList.push( "mtask-"+i);
             }
-            lSet("mtask-keys", keysList);
+            lSet("mtask-keys", keyList);
         }
         lSet("mtask-Change",changeList);
     }
@@ -286,6 +311,14 @@ $(document).ready(function() {
         }
     }
 
+    //clear current all data
+    function clearAll(){
+        localStorage.clear();
+        init();
+    }
+    //delete all to-do list
+    function deleteAll(){
+    }
 }); 
 
 

@@ -55,7 +55,7 @@ type ListData struct {
     Username    string 
     Gid         int64 
     Project     string
-    Status      int
+    Status      bool
     Change      string
     Time        int64
     List        string
@@ -262,6 +262,32 @@ func staticDirHandler(mux *http.ServeMux, prefix string, staticDir string, flags
     })
 }
 
+func userListHandler(w http.ResponseWriter, r *http.Request) {
+    username, err := url.QueryUnescape(r.FormValue("username"))
+    check(err)
+
+    //mongodb opration 
+    mongoCon, err := mgo.Dial("127.0.0.1:27018")
+    check(err)
+
+    defer mongoCon.Close()
+
+    mongoCon.SetMode(mgo.Monotonic, true)
+
+    // 获取数据库,获取集合
+    l := mongoCon.DB("test_go").C("list")
+    var outputResult []ListData
+    err = l.Find(&bson.M{"username": username}).All(&outputResult)
+    output := make(map[string]interface{})
+    output["msg"] = "true"
+    log.Info( "output data" ,outputResult )
+    output["data"]=outputResult
+    outputJSON, err := json.Marshal(output)
+    check(err)
+    w.Write(outputJSON)
+}
+
+
 func saveHandler(w http.ResponseWriter, r *http.Request) {
     postData, err := url.QueryUnescape(r.FormValue("data"))
     check(err)
@@ -348,16 +374,7 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
             return
         }
     }
-    
-    var outputResult []ListData
-    err = l.Find(&bson.M{"username": username}).All(&outputResult)
-    output := make(map[string]interface{})
-    output["msg"] = "true"
-    log.Info( "output data" ,outputResult )
-    output["data"]=outputResult
-    outputJSON, err := json.Marshal(output)
-    check(err)
-    w.Write(outputJSON)
+    userListHandler( w,r )
 }
 
 func main() {
@@ -384,6 +401,7 @@ func main() {
     mux.HandleFunc("/register", safeHandler(registerHandler))
     mux.HandleFunc("/login", safeHandler(loginHandler))
     mux.HandleFunc("/save", safeHandler(saveHandler))
+    mux.HandleFunc("/user_list", safeHandler(userListHandler))
 
     lis,err := net.Listen( "tcp",":8080" )
     check( err )
