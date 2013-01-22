@@ -7,17 +7,11 @@
     </head>
     <body>
         <div id="container">
-            <div id="head-top">
-                <div id="welcome">Welcome </div>
-                <div id="top-links">
-                    <a class="count" href="/myaccount">My Account</a> |  
-                    <a class="loginout" href="/login">Login</a> |
-                    <a class='save' href="#">Save Now</a> |
-                </div>
-            </div>
             <header>
             <h1>HTML5 Todo App</h1>
             </header>
+            <div id="ajaxstatus"></div>
+            <a class='save'>Save Now</a>
             <section id="main-content">
             <div class="form-area">
                 <form id="tasks-form">
@@ -25,23 +19,18 @@
                     <input id="task" autofocus="">
                 </form>
             </div>
-            <fieldset>
-                <legend align="center">Futrue</legend>
-            </fieldset>
-            <ul id="tasks" class="list"></ul>
-            <fieldset>
-                <legend align="center">Finished</legend>
-            </fieldset>
-            <ul id="done" class="list"></ul> 
+            <ul id="tasks"></ul>
+            <hr/>
+            <header>
+            <h4>Finished</h4>
+            <ul id="done"></ul> 
             </section>
         </div>
         
         <li class="template" style="display:none">
-           <input type='checkbox' id="checkbox1"/> 
+           <input type='checkbox'/> 
            <span >" "</span> 
-           <a href="#" class="todo-remove" title="Remove this task">
-                <span class="todo-remove-icon"></span>
-           </a>
+           <a href=''>x</a>
         </li>
 
         <script type="text/javascript" src="public/js/jquery.js"></script>
