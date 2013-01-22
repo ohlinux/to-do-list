@@ -13,6 +13,7 @@ $(document).ready(function() {
     var username=getcookie( "username" );
     if (username){
         retrieve_from_server();
+        $('#welcome').find('div').text("Hi "+username);
     }else{
         username="";
     }
@@ -24,6 +25,36 @@ $(document).ready(function() {
         store_to_server();
         //store_to_server();
     });
+
+    $('ul.list li').live('mouseover', function(){
+            $(this).find('span.todo-remove-icon').css('visibility', 'visible');
+    });
+    $('ul.list li').live('mouseout', function(){
+            $(this).find('span.todo-remove-icon').css('visibility', 'hidden');
+    });
+
+    $('input[type=checkbox]').live("change",function(){ 
+        var liE=$(this).parent();
+        var changeKey=$(liE).attr("id");
+        var changeData=lGet(changeKey);
+        if(changeData.Change == "SAVED"){
+             changeData.Version=changeData.Version+1;
+             changeData.Change = 'MODIFY';
+        }
+        changeData.Time=current_ms_time(); 
+
+        if($(this).attr("checked")==true){ 
+            $(liE).addClass('finished');
+            $(liE).appendTo('#done');
+            changeData.Status=true;
+        }else{ 
+            $(liE).removeClass('finished');
+            $(liE).appendTo('#tasks');
+            changeData.Status=false;
+        } 
+            lSet(changeKey,changeData);
+            changeFun(changeList,changeKey);
+    }); 
 
     // Add a task
     $("#tasks-form").submit(function(){
@@ -85,7 +116,6 @@ $(document).ready(function() {
         removeKey=$(this).parent().attr("id");
         var delItem=lGet(removeKey);
         //如果没有gid直接进行删除
-        alert( delItem.Gid);
         if (delItem.Gid){
             delItem.Change="DEL";
             changeFun(changeList,removeKey);
@@ -144,6 +174,7 @@ $(document).ready(function() {
 
     function display(){
         $('#tasks').empty();
+        $('#done').empty();
         keyList=lGet("mtask-keys");
             if( keyList ){  
                 for( var i = keyList.length-1; i >= 0 ; i--){  
@@ -156,8 +187,14 @@ $(document).ready(function() {
                         style : "",
                     });
                     $(li).removeClass( 'template');
-                    $(li).find('span').text( data.List );
-                    $(li).appendTo('#tasks');
+                    $(li).find('span:first').text( data.List );
+                    if (data.Status) {
+                        $(li).find('input[type=checkbox]').attr("checked","checked");
+                        $(li).addClass('finished');
+                        $(li).appendTo('#done');
+                    }else{
+                        $(li).appendTo('#tasks');
+                    }
                 }
             }
     }
