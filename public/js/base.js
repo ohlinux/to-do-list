@@ -13,12 +13,16 @@ $(document).ready(function() {
     var username=getcookie( "username" );
     if (username){
         retrieve_from_server();
-        $('#welcome').find('div').text("Hi "+username);
+        $('#welcome').html('Hi '+username);
+        $('a.login').replaceWith('<a class="logout" href="#">Logout</a> | <a class="count" href="/myaccount">My Account</a> | <a class="save" href="#">Save Now</a> ');
     }else{
         username="";
     }
     display();
 
+    $('a.logout').live('click',function(){
+        delCookie();
+    });
     // projects.get();	
     //save now 
     $("a.save").live( 'click',function() {
@@ -84,8 +88,8 @@ $(document).ready(function() {
                 style : "",
             });
             $(li).removeClass( 'template');
-            $(li).find('span').text( data.List );
-            $(li).find('span').editable({
+            $(li).find('span:first').text( data.List );
+            $(li).find('span:first').editable({
                 editBy:"dblclick",
                 type:"textarea",
                 editClasss:'note_are',
@@ -129,7 +133,7 @@ $(document).ready(function() {
         lSet("mtask-keys",keyList);
         $(this).parent().slideUp('slow', function() { $(this).remove(); } );
     });
-
+//login action
     //edit the value
     function editSave(content,id){
         var editData=lGet(id);
@@ -145,6 +149,7 @@ $(document).ready(function() {
         }
         lSet( id,editData );
     } 
+
 
     function init(){  
         index = lGet("mtask-index");
@@ -332,6 +337,25 @@ $(document).ready(function() {
             var temp = arrstr[i].split("=");
             if(temp[0] == objname) return unescape(temp[1]);
         }
+    }
+
+    //del all cookie
+    function delCookie() {
+        //获取 Cookie 字符串  
+        var strCookie = document.cookie;  
+        //将多 Cookie 切割为多个名、值对  
+        var arrCookie = strCookie.split(";");  
+        //遍历 Cookie 数据，处理每个 Cookie 对  
+        var thisCookie;  
+        for (var i=0;i<arrCookie.length;i++ ){  
+            //将每个 Cookie 对切割分为名和值  
+            thisCookie = arrCookie[i];  
+            var arrThisCookie = thisCookie.split("=");  
+            //获取每个 Cookie 的变量名  
+            var thisCookieName;thisCookieName=arrThisCookie[0];    
+            document.cookie = thisCookieName + " =" +";expires=Thu, 01-Jan-1970 00:00:01 GMT";  
+        }  
+       location.reload(); 
     }
 
     //change list function 

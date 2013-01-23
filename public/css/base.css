@@ -10,6 +10,10 @@ position: absolute;
 left: 5px;
 bottom: 0px;
 }
+/*.count,.save{
+    visibility:hidden;
+}
+    */
 #top-links {
 float: right;
 position: absolute;

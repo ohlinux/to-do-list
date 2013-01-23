@@ -5,15 +5,17 @@
         <title>HTML5 Toddo login</title>
     </head>
     <body>
-        <form id='register' action='/login' method='post' accept-charset='UTF-8'>
+        <form id='login' action='/login' method='post' accept-charset='UTF-8'>
             <fieldset >
-                <legend>Register</legend>
+                <legend>Login</legend>
                 <input type='hidden' name='submitted' id='submitted' value='1'/>
                 <label for='username' >UserName :</label></br>
                 <input type='text' name='username' id='username' maxlength="50" /></br>
                 <label for='password' >Password :</label></br>
                 <input type='password' name='password' id='password' maxlength="50" /></br>
-                <input type='submit' name='Submit' value='登陆' /></br>
+                <input type='submit' name='Submit' value='登陆' />
+                <input type='button' name='register'
+                onclick="parent.location='register'" value='注册' /></br>
             </fieldset>
         </form>
     </body>
